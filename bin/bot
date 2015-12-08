@@ -1,0 +1,62 @@
+#!/usr/bin/env ruby
+require "cinch"
+require "cinch/plugins/identify"
+require_relative "../lib/matzkatz"
+require "yaml/store"
+require "pathname"
+
+ROOT = Pathname.new("../..").expand_path(__FILE__)
+
+bot = Cinch::Bot.new do
+  configure do |c|
+    nick = ENV.fetch("NICK", "matzkatz")
+    c.plugins.plugins = [Cinch::Plugins::Identify]
+    c.plugins.options[Cinch::Plugins::Identify] = {
+      username: nick,
+      password: ENV.fetch("NICKSERV"),
+      type: :nickserv,
+    }
+
+    c.ssl.use = true
+    c.server = "irc.freenode.net"
+    c.port = 6697
+    c.nick = nick
+    c.channels = ENV.fetch("CHANNELS").split(",")
+  end
+
+  helpers do
+    def game
+      @game ||=
+        begin
+          store = YAML::Store.new(ROOT.join("store.yml"))
+          criterion = MatzKatz::FirstDotCriterion.new(store)
+          MatzKatz::DotGame.new(store, criterion)
+        end
+    end
+
+    def transcoder
+      @transcoder ||= MatzKatz::Transcoder.new(ENV.fetch("PASSWORD"))
+    end
+  end
+
+  on :invite do |m|
+    m.target.join
+  end
+
+  on :message do |m|
+    begin
+      case transcoder.decode(m.message)
+      when "."
+        game.register(Time.now, m.user.nick) do
+          m.reply transcoder.encode("#{m.user.nick}punkt++")
+        end
+      when ".scores"
+        m.reply transcoder.encode("#{game.scores.inspect}")
+      end
+    rescue MatzKatz::OpensslEnc::InvalidCiphertext
+      m.reply "Sorry, not talking to you in plain text" if m.message.start_with?(".")
+    end
+  end
+end
+
+bot.start
