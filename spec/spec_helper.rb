@@ -1,6 +1,17 @@
 require_relative "../lib/matzkatz"
 
+module MockStore
+  def store
+    @store ||=
+      Hash.new.tap do |h|
+        def h.transaction; yield; end
+      end
+  end
+end
+
 RSpec.configure do |config|
+  config.include MockStore
+
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
   end

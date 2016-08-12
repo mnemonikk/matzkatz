@@ -1,7 +1,7 @@
 require "spec_helper"
 
 RSpec.describe MatzKatz::FirstDotCriterion do
-  subject(:criterion) { described_class.new }
+  subject(:criterion) { described_class.new(store) }
 
   it "registers the first dot" do
     expect(criterion.call(Time.new(2010, 11, 22, 5, 33))).to be_truthy
